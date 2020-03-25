@@ -63,6 +63,22 @@ func (scaler *Scaler) resumeScallingJob(w http.ResponseWriter, r *http.Request) 
 	defer mutex.Unlock()
 	delete(scaler.jobMap, mapID)
 
+	jobMapMutex.Lock()
+	jobMapScaleMutex.Lock()
+
+	log.Debug("Updating job config for ", jobID)
+	delete(jobMap, jobID)
+	delete(jobMapScale, jobID)
+	jobMapScaleMutex.Unlock()
+
+	nomadJob, err := GetJob(jobID, region)
+	if err != nil {
+		log.Warn("Error getting job ", jobID, " with err: ", err)
+	} else {
+		jobMap[jobID] = &nomadJob
+	}
+	jobMapMutex.Unlock()
+
 	message := "Manually resumed: " + mapID
 	slack.SendMessage(message)
 	fmt.Fprintf(w, "%s", message)
